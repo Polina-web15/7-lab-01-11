@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Управление студентами</title>
+    <style>
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            margin: 20px; 
+            background: #f5f7fa; 
+            color: #333;
+        }
+        h1 { 
+            color: #2c3e50; 
+            border-bottom: 2px solid #3498db; 
+            padding-bottom: 8px; 
+            margin-bottom: 25px;
+        }
+        .form-group {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            margin: 20px 0;
+            flex-wrap: wrap;
+        }
+        input[type="text"] {
+            padding: 10px;
+            border: 1px solid #bdc3c7;
+            border-radius: 6px;
+            width: 220px;
+            font-size: 14px;
+        }
+        button {
+            padding: 10px 18px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background 0.2s;
+        }
+        .add-btn {
+            background: #3498db;
+            color: white;
+        }
+        .add-btn:hover {
+            background: #2980b9;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            background: white;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        th, td {
+            padding: 14px;
+            text-align: left;
+            border-bottom: 1px solid #ecf0f1;
+        }
+        th {
+            background-color: #2c3e50;
+            color: white;
+            font-weight: bold;
+        }
+        tr:hover {
+            background-color: #f8f9fa;
+        }
+        .actions button {
+            margin-right: 6px;
+            padding: 6px 12px;
+            font-size: 13px;
+            border-radius: 4px;
+        }
+        .edit-btn {
+            background: #f39c12;
+            color: white;
+        }
+        .edit-btn:hover {
+            background: #e67e22;
+        }
+        .delete-btn {
+            background: #e74c3c;
+            color: white;
+        }
+        .delete-btn:hover {
+            background: #c0392b;
+        }
+        .message {
+            margin-top: 12px;
+            padding: 10px;
+            border-radius: 6px;
+            display: none;
+            max-width: 500px;
+        }
+        .success { 
+            background: #d5f5e3; 
+            color: #27ae60; 
+            border: 1px solid #abebc6;
+        }
+        .error { 
+            background: #fadbd8; 
+            color: #c0392b; 
+            border: 1px solid #f5b7b1;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎓 Управление студентами</h1>
+
+        <!-- Форма добавления -->
+        <div class="form-group">
+            <input type="text" id="newName" placeholder="Имя студента" />
+            <input type="text" id="newGroup" placeholder="Группа" />
+            <button class="add-btn" onclick="createStudent()">➕ Добавить</button>
+        </div>
+        <div id="createMessage" class="message"></div>
+
+        <!-- Таблица студентов -->
+        <table id="studentsTable">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Имя</th>
+                    <th>Группа</th>
+                    <th>Действия</th>
+                </tr>
+            </thead>
+            <tbody id="studentsBody">
+                <!-- Заполняется JS -->
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        const API_URL = '/students';
+
+        // Загрузка студентов при старте
+        document.addEventListener('DOMContentLoaded', loadStudents);
+
+        async function loadStudents() {
+            try {
+                const response = await fetch(API_URL);
+                if (!response.ok) throw new Error('Не удалось загрузить студентов');
+                const students = await response.json();
+                const tbody = document.getElementById('studentsBody');
+                tbody.innerHTML = '';
+
+                students.forEach(s => {
+                    const row = tbody.insertRow();
+                    row.innerHTML = `
+                        <td>${s.id || ''}</td>
+                        <td>${escapeHtml(s.name)}</td>
+                        <td>${escapeHtml(s.groupName || '')}</td>
+                        <td class="actions">
+                            <button class="edit-btn" onclick="editStudent(${s.id}, '${escapeJs(s.name)}', '${escapeJs(s.groupName || '')}')">✏️ Редактировать</button>
+                            <button class="delete-btn" onclick="deleteStudent(${s.id})">🗑️ Удалить</button>
+                        </td>
+                    `;
+                });
+            } catch (error) {
+                console.error('Ошибка загрузки:', error);
+                showMessage(document.getElementById('createMessage'), 'Ошибка загрузки: ' + error.message, 'error');
+            }
+        }
+
+        // Создание студента
+        async function createStudent() {
+            const name = document.getElementById('newName').value.trim();
+            const groupName = document.getElementById('newGroup').value.trim();
+            const msgEl = document.getElementById('createMessage');
+
+            if (!name) {
+                showMessage(msgEl, 'Поле "Имя" обязательно', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, groupName })
+                });
+
+                if (response.ok) {
+                    showMessage(msgEl, 'Студент добавлен!', 'success');
+                    document.getElementById('newName').value = '';
+                    document.getElementById('newGroup').value = '';
+                    loadStudents();
+                } else {
+                    const errorText = await response.text();
+                    showMessage(msgEl, 'Ошибка: ' + (errorText || 'неизвестная'), 'error');
+                }
+            } catch (error) {
+                showMessage(msgEl, 'Ошибка сети: ' + error.message, 'error');
+            }
+        }
+
+        // Редактирование
+        function editStudent(id, name, groupName) {
+            const newName = prompt("Введите новое имя:", name);
+            const newGroup = prompt("Введите новую группу:", groupName);
+
+            if (newName === null || newGroup === null) return;
+
+            const trimmedName = newName.trim();
+            const trimmedGroup = newGroup.trim();
+
+            if (!trimmedName) {
+                alert('Имя не может быть пустым!');
+                return;
+            }
+
+            updateStudent(id, trimmedName, trimmedGroup);
+        }
+
+        async function updateStudent(id, name, groupName) {
+            try {
+                const response = await fetch(`${API_URL}/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id, name, groupName })
+                });
+
+                if (response.ok) {
+                    alert('Студент обновлён!');
+                    loadStudents();
+                } else {
+                    const errorText = await response.text();
+                    alert('Ошибка: ' + (errorText || 'неизвестная'));
+                }
+            } catch (error) {
+                alert('Ошибка сети: ' + error.message);
+            }
+        }
+
+        // Удаление
+        async function deleteStudent(id) {
+            if (!confirm(`Удалить студента с ID ${id}?`)) return;
+
+            try {
+                const response = await fetch(`${API_URL}/${id}`, {
+                    method: 'DELETE'
+                });
+
+                if (response.ok) {
+                    loadStudents();
+                } else {
+                    alert('Не удалось удалить студента');
+                }
+            } catch (error) {
+                console.error('Ошибка удаления:', error);
+                alert('Ошибка сети');
+            }
+        }
+
+        // Вспомогательные функции безопасности
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function escapeJs(str) {
+            return str.replace(/['"\\]/g, '\\$&');
+        }
+
+        function showMessage(element, text, type) {
+            element.textContent = text;
+            element.className = `message ${type}`;
+            element.style.display = 'block';
+            setTimeout(() => {
+                element.style.display = 'none';
+            }, 4000);
+        }
+    </script>
+</body>
+</html>

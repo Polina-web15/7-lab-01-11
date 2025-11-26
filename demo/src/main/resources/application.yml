@@ -1,0 +1,38 @@
+spring:
+  profiles:
+    active: dev
+  application:
+    name: "My variant"
+    version: "0.1"
+---
+spring:
+  config:
+    activate:
+      on-profile: dev
+  datasource:
+    url: jdbc:postgresql://localhost:5432/students100
+    username: postgres
+    password: 1511
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    hibernate:
+          ddl-auto: update
+  server:
+    port: 8081
+  logging:
+    level:
+      org.springframework.web: DEBUG
+  
+jwt:
+  secret: XX 
+  access:
+      duration:
+          minute: 5
+          second: 300
+      cookie-name: access-token
+  refresh:
+      duration:
+          days: 7
+          second: 604800
+      cookie-name: refresh-token
